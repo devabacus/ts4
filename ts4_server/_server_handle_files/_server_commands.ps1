@@ -70,4 +70,4 @@ kubectl delete deployment ts4-server-deployment
 #restart deployment
 kubectl rollout restart deployment ts4-server-deployment
 
-kubectl create secret generic serverpod-secrets-ts4 --from-literal=database-password='пароль' --from-literal=redis-password='пароль' --from-literal=service-secret='пароль'
+kubectl create secret generic serverpod-secrets-ts4 --from-literal=database-password='ejx5-dGt-luSPI' --from-literal=redis-password='-$D%6g5==Z64y&' --from-literal=service-secret='rHrlyc4qbDq9PPdnXcauTlqGvyrD0BAS'

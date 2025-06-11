@@ -1,29 +1,27 @@
-
-name: Build and Deploy to Kubernetes
+name: Build and Push Image
 
 on:
   push:
-    branches: [ master ] # Убедитесь, что это ваша основная ветка
+    branches: [ master ]
   workflow_dispatch:
 
 jobs:
-  build-and-push-image:
+  build-push-and-update-manifest:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write # Нужны права на запись для коммита изменений
       packages: write
-    # "Выводим" наружу сгенерированный тег, чтобы другие задачи могли его использовать
-    outputs:
-      tag: ${{ steps.meta.outputs.version }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        # Нужно использовать токен с правами на запись, чтобы закоммитить изменения
+        with:
+          token: ${{ secrets.PAT_TOKEN }} # Создайте Personal Access Token с правами repo и сохраните в секретах
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        
-      # Этот шаг извлекает метаданные, включая уникальный тег (хеш коммита)
+
       - name: Extract Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -45,47 +43,26 @@ jobs:
           context: ./ts4_server
           file: ./ts4_server/Dockerfile.prod
           push: true
-          tags: ${{ steps.meta.outputs.tags }} # Используем сгенерированный уникальный тег
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-  deploy-to-cluster:
-    needs: build-and-push-image # Запускается после сборки
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Kubeconfig
-        uses: azure/k8s-set-context@v4
-        with:
-          kubeconfig: ${{ secrets.KUBE_CONFIG }}
-
-      - name: Create or Update Kubernetes Secret
+      - name: Update Kubernetes manifests with new image tag
         run: |
-          kubectl create secret generic serverpod-secrets-ts4             --from-literal=database-password='${{ secrets.DB_PASSWORD }}'             --from-literal=redis-password='${{ secrets.REDIS_PASSWORD }}'             --from-literal=service-secret='${{ secrets.SERVICE_SECRET }}'             --dry-run=client -o yaml | kubectl apply -f -
+          # Используем тег, сгенерированный на шаге 'meta'
+          NEW_TAG=${{ steps.meta.outputs.version }}
+          echo "New image tag: $NEW_TAG"
+          sed -i 's|image: dbe81550-wise-chickadee.registry.twcstorage.ru/ts4-server:.*|image: dbe81550-wise-chickadee.registry.twcstorage.ru/ts4-server:'"$NEW_TAG"'|g' ts4_server/k8s/deployment.yaml
+          sed -i 's|image: dbe81550-wise-chickadee.registry.twcstorage.ru/ts4-server:.*|image: dbe81550-wise-chickadee.registry.twcstorage.ru/ts4-server:'"$NEW_TAG"'|g' ts4_server/k8s/job.yaml
 
-      # НОВЫЙ ШАГ: Вписываем правильный тег в манифесты
-      - name: Update manifests with new image tag
+      - name: Commit and push manifest changes
         run: |
-          sed -i 's|image: .*|image: dbe81550-wise-chickadee.registry.twcstorage.ru/ts4-server:${{ needs.build-and-push-image.outputs.tag }}|g' ts4_server/k8s/deployment.yaml
-          sed -i 's|image: .*|image: dbe81550-wise-chickadee.registry.twcstorage.ru/ts4-server:${{ needs.build-and-push-image.outputs.tag }}|g' ts4_server/k8s/job.yaml
-
-      - name: Apply Kubernetes manifests
-        run: |
-          kubectl apply -f ts4_server/k8s/configmap.yaml
-          kubectl apply -f ts4_server/k8s/service.yaml
-          kubectl apply -f ts4_server/k8s/ingress.yaml
-          # Удаляем старый Job перед применением нового, чтобы он гарантированно запустился
-          kubectl delete job serverpod-migration-job-ts4 --ignore-not-found=true
-          kubectl apply -f ts4_server/k8s/job.yaml
-          
-      - name: Wait for migration job to complete
-        run: kubectl wait --for=condition=complete job/serverpod-migration-job-ts4 --timeout=5m
-
-      - name: Deploy main application
-        run: |
-          kubectl apply -f ts4_server/k8s/deployment.yaml
-          kubectl rollout status deployment/ts4-server-deployment --timeout=2m
-
-    
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add ts4_server/k8s/deployment.yaml ts4_server/k8s/job.yaml
+          # Проверяем, есть ли изменения, чтобы не делать пустых коммитов
+          if ! git diff --staged --quiet; then
+            git commit -m "ci: update image tag to ${{ steps.meta.outputs.version }}"
+            git push
+          else
+            echo "No changes to commit."
+          fi

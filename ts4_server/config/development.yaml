@@ -33,6 +33,7 @@ database:
   port: 8090
   name: ts4
   user: postgres
+  
   #requireSsl: true # defaults to false
   #isUnixSocket: true # defaults to false
 
@@ -41,6 +42,7 @@ redis:
   enabled: false
   host: localhost
   port: 8091
+  
   #user: # defaults to empty
   #requireSsl: true # defaults to false
 
@@ -51,6 +53,10 @@ sessionLogs:
   consoleEnabled: true
   consoleLogFormat: text # Defaults to "json", options are "text" or "json"
 
+logging:
+  log_level: debug
+  queries: true
+  
 # futureCallExecutionEnabled: true # Defaults to true
 
 #futureCall:
