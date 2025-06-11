@@ -11,7 +11,7 @@ spec:
       - name: timeweb-registry-secret
       containers:
       - name: migrator-ts4
-        image: dbe81550-wise-chickadee.registry.twcstorage.ru/ts4-server:f81d232
+        image: dbe81550-wise-chickadee.registry.twcstorage.ru/ts4-server:77fdd24
         command: ["/usr/local/bin/server", "--apply-migrations", "--mode", "production", "--role", "maintenance"]
 
         envFrom:
