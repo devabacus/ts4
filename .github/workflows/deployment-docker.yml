@@ -7,17 +7,20 @@ on:
 
 jobs:
   build-push-and-update-manifest:
+    # ДОБАВЬТЕ ЭТО УСЛОВИЕ:
+    # Не запускать задачу, если в сообщении коммита содержится '[ci skip]'
+    if: ${{ !contains(github.event.head_commit.message, '[ci skip]') }}
+
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Нужны права на запись для коммита изменений
+      contents: write
       packages: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        # Нужно использовать токен с правами на запись, чтобы закоммитить изменения
         with:
-          token: ${{ secrets.PAT_TOKEN }} # Создайте Personal Access Token с правами repo и сохраните в секретах
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -48,7 +51,6 @@ jobs:
 
       - name: Update Kubernetes manifests with new image tag
         run: |
-          # Используем тег, сгенерированный на шаге 'meta'
           NEW_TAG=${{ steps.meta.outputs.version }}
           echo "New image tag: $NEW_TAG"
           sed -i 's|image: dbe81550-wise-chickadee.registry.twcstorage.ru/ts4-server:.*|image: dbe81550-wise-chickadee.registry.twcstorage.ru/ts4-server:'"$NEW_TAG"'|g' ts4_server/k8s/deployment.yaml
@@ -59,9 +61,9 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git add ts4_server/k8s/deployment.yaml ts4_server/k8s/job.yaml
-          # Проверяем, есть ли изменения, чтобы не делать пустых коммитов
           if ! git diff --staged --quiet; then
-            git commit -m "ci: update image tag to ${{ steps.meta.outputs.version }}"
+            # ИЗМЕНИТЕ СООБЩЕНИЕ КОММИТА ЗДЕСЬ:
+            git commit -m "ci: update image tag to ${{ steps.meta.outputs.version }} [ci skip]"
             git push
           else
             echo "No changes to commit."
