@@ -5,6 +5,8 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: serverpod-config-ts4
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
 data:
   # --- Настройки базы данных для ts4 ---
   SERVERPOD_DATABASE_HOST: "192.168.0.9"
