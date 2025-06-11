@@ -21,7 +21,7 @@ spec:
       containers:
       - name: ts4-server
         
-        image: dbe81550-wise-chickadee.registry.twcstorage.ru/ts4-server:d5d3a24
+        image: dbe81550-wise-chickadee.registry.twcstorage.ru/ts4-server:353b9c0
         command: ["/usr/local/bin/server", "--mode", "production", "--role", "monolith"]
 
         imagePullPolicy: Always 
